@@ -1,0 +1,8 @@
+# Install PyTorch separately (CPU wheel), e.g.
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+numpy>=2.0
+matplotlib>=3.8
+scipy>=1.11
+mpmath>=1.3
+python-flint==0.8.0
+pandas
