@@ -90,6 +90,3 @@ Python 3.11 or later, CPU only. PyTorch (CPU wheel), NumPy, Matplotlib, SciPy, m
 
 If you use this code, please cite the paper and the Zenodo archive (see `CITATION.cff` once added).
 
-## License
-
-MIT License. See `LICENSE`.
