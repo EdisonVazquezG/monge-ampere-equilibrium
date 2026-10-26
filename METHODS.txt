@@ -1,0 +1,166 @@
+MATHEMATICAL AND NUMERICAL CONTRACT
+
+Scope
+The trained effective binary64 arrays W,A,b,w,a,c define the exact real model
+z(x)=softplus(W z(x)+A x+b), u(x)=w^T z(x)+a^T x+c. A saved float is interpreted
+as its exact dyadic rational, not as an uncertain estimate of an ideal real
+optimizer trajectory. We certify this frozen model, not training convergence
+or the rounding history that produced its parameters. W,w >= 0 and q<1 are
+checked again with Arb. Arb and its platform implementation are trusted;
+this is rigorous numerical arithmetic, not formal machine-checked mathematics.
+
+1. Original pilots and reproduction
+Original definitions were extracted verbatim from the supplied notebook.
+The training functions, learning-rate milestones (65%,90%, gamma .35), seeds,
+sampling order and strong-Wolfe L-BFGS settings are retained. torch deterministic
+algorithms and one CPU thread are used. Original PyTorch outputs and a NumPy
+evaluator are compared in a test, including an autograd Hessian route.
+The new high-accuracy float64 reference uses a state tolerance 1e-13 and the
+effective row norm; the historical evaluator used 1e-12 and nominal q=.7.
+Neither floating reference is assumed exact. Reference residual diagnostics
+are stored; counts of float64 'violations' allow its diagnostic determinant
+error plus an explicitly declared 1e-11 comparison floor. Ratios are summarized
+only above that floor. These numerical diagnostics are not rigorous evidence.
+The Arb enclosure is the independent roundoff-controlled output.
+
+Historical note
+The paper reports the run named full1 (this repository, profile full). Values
+from earlier exploratory notebooks and status reports differ slightly in some
+trained models (training is not bit-for-bit reproducible across machines) and
+are kept only as historical_baselines.json; they are not the source of any
+number in the paper.
+
+2. Stopping experiment
+Absolute determinant tolerances 1e-4 and 1e-6 are prespecified. Candidate jets
+are propagated incrementally; at checkpoints 4,8,12,16,24,32,48,64 each active
+point is tested and removed if its bound passes. If L=64 does not pass, its
+accepted flag is false. Failure is never silently labeled certified.
+Three float64 baselines: fixed 32 without certificate, fixed 32 with the
+diagnostic certificate, and adaptive with certificate. Warmup is untimed;
+five repetitions run in interleaved order. Report median/min/max and raw
+measurements. Active-array compaction and coefficient residual computations
+are inside the timer. File I/O, reference calculation and one-time loading of
+frozen coefficients are outside for all methods.
+A separate cohort (8 points/model) compares fixed32+Arb with adaptive+Arb,
+including the entire interval residual computation at every checkpoint.
+Do not compare its throughput directly with the larger vectorized float64
+cohort. Speedup is meaningful only if the flag for a shared accuracy goal is
+true. A negative speedup is a useful result; fewer iterations do not imply
+lower wall time. Neither cohort proves hardware-independent speedup.
+
+3. Interval residual certificate
+flint.arb provides real balls with rigorous error tracking. We use 128-bit
+midpoints by default; ball radii have FLINT's own precision. Raising midpoint
+precision does not necessarily cure wrapping of wide input boxes.
+Every input float is imported via as_integer_ratio and exact power-of-two
+division. Rational target coefficients use integers: 1/4,1/2,1/10,6/5.
+Softplus and sigmoid on wide balls use monotonic endpoint evaluation. This
+avoids invalid logarithms or divisions caused by wrapping of exp(ball).
+Generic Arb real powers on sign-changing balls are avoided; integer products
+are used instead. Every scalar bound is rounded outward on binary64 export;
+Python JSON/CSV decimal roundtripping preserves that exported value.
+
+Let X be any input box, and let zhat,Jhat,Khat be CONSTANT finite candidates.
+Khat is symmetric. For every x in X compute interval enclosures of
+ shat=W zhat+A x+b, Dhat=diag(sigmoid(shat)), gammahat=dhat(1-dhat),
+ Bhat=I-Dhat W, Vhat_i=A_i+W Jhat_i.
+Let rho_z,rho_i,rho_ij be upper bounds of their residual infinity norms:
+ zhat-softplus(shat), Bhat Jhat_i-Dhat A_i,
+ Bhat Khat_ij-gammahat Vhat_i Vhat_j.
+All products in the last expression are componentwise except matrix products.
+Let delta=1-q, U_i=||Vhat_i||infinity, with rigorously rounded upper bounds.
+Then, pointwise for every x in X,
+ Ez=rho_z/delta,
+ alpha=q Ez/4,
+ E_i=(rho_i+alpha U_i)/delta, Delta_i=q E_i,
+ Q_ij=alpha U_i U_j+(Delta_i U_j+U_i Delta_j+Delta_i Delta_j)/4,
+ E_ij=(rho_ij+Q_ij+alpha q ||Khat_ij||infinity)/delta.
+These follow from ||(I-DW)^-1||infinity <= 1/delta, the global 1/4 Lipschitz
+bounds for sigmoid and gamma, and addition/subtraction of the candidate
+equations. Upper bounds may be substituted throughout because each expression
+is monotone in nonnegative error magnitudes.
+
+With Htilde=sum_r w_r Khat_r, EH=||w||1 sqrt(sum_ij E_ij^2),
+ ||H-Htilde||2 <= EH and
+ |det H-det Htilde| <= 2 ||Htilde||F EH+EH^2 = Edet.
+The Frobenius norm upper-bounds the spectral norm used in the manuscript.
+Htilde and det Htilde are computed in Arb. For a reported float64 determinant
+d_float, the returned det_error_upper also includes |det Htilde-d_float|.
+Thus the guarantee includes the final floating accumulation and determinant.
+hessian_error_upper itself is relative to the exact weighted candidate Khat;
+it is not advertised as an error bound for an externally rounded H array.
+The potential satisfies |u-(w^T zhat+a^T x+c)| <= ||w||1 Ez.
+Arb computes the target f(X), u*(X) and all further enclosure operations.
+
+4. Tighter local boxes
+The residual route above supplies a valid fallback for any finite box.
+Starting from Z=zhat+[-Ez,Ez]^m, four interval fixed-point intersections
+ Z <- Z intersect softplus(W Z+A X+b)
+preserve every exact equilibrium z(x), x in X. They do not assume that an
+unverified floating fixed-point iterate encloses the solution.
+Using this state enclosure, compute interval D,gamma,B and verified solves
+ B J = D A,
+ B K_ij = gamma (A_i+W J_i)(A_j+W J_j).
+The Arb matrix solver encloses the solutions. If it cannot certify a solve,
+the residual bound is retained. When both succeed, the smaller of two valid
+upper bounds is used. No unreviewed third-derivative estimate is needed here.
+This is an alternative to the status report's D3 local-variation method;
+the report's D3 extension is not silently promoted to a proved theorem.
+
+5. Whole disk and boundary
+Begin with [-1,1]^2, split into four exact dyadic children. Discard a box only
+when an exact integer squared-distance test puts the ENTIRE closed box strictly
+outside the unit disk. Boxes touching the circle are retained. Every other
+terminal box has a finite interval bound covering all its points, including
+points outside the disk in straddling boxes; that overcoverage is conservative.
+Breadth-first refinement is limited by depth and total work. A work limit
+prevents subdivision, never removes an unbounded/uncertified piece. Failure
+to compute a finite fallback aborts before writing a completion certificate.
+
+The full boundary is parameterized by theta in [0,2*pi]. Dyadic angular arcs
+are converted with Arb pi, sin and cos to containing Cartesian boxes. Bound
+|u-g| on each whole arc using the potential estimate; no sampled boundary
+maximum is substituted for a supremum. A separate exact coverage audit checks
+dyadic non-overlap, total area/angle, and every outside-disk rejection.
+The maximum of terminal upper bounds is a valid uniform bound. It may exceed
+the requested target. coverage_complete and target_met are separate claims.
+
+The exact manufactured u* is known for P1/P2, so u_error_uniform_upper_manufactured
+is also computed directly. For a general unknown solution one would instead
+need an applicable Monge–Ampère stability theorem and all its constants and
+hypotheses. This code does not guess a stability constant or certify optimizer
+convergence. It certifies residuals, boundary errors and these manufactured
+solution errors for a frozen convex equilibrium potential.
+
+6. Review and validation
+Six tests cover outward export, wide nonlinear balls, a separable analytic
+case, coupled q=.2,.7,.95 models against an independent 80-digit mpmath oracle,
+the original/autograd Hessian and exact coverage/gap detection. The high-
+precision oracle is a test, not the basis of the rigorous interval guarantee.
+A smoke run exercises all stages on two tiny trainings and produces artifacts.
+It is not evidence that the full experiment's tolerances will be met.
+
+Primary arithmetic documentation:
+https://python-flint.readthedocs.io/en/stable/general.html
+https://python-flint.readthedocs.io/en/stable/arb.html
+https://python-flint.readthedocs.io/en/stable/arb_mat.html
+https://flintlib.org/doc/using.html
+Pinned implementation: python-flint 0.8.0; consult its installed method docs
+alongside newer web documentation. No new theoretical priority claim is made
+for ball arithmetic, interval residuals, or verified matrix solves.
+
+7. Extended experiments X1-X7 (extended.py, icnn_certification.py)
+These reuse the certified modules unchanged. X1: near-critical q with the row
+sums of W fixed to q before rounding. X2: explicit ICNN (211 parameters) versus
+equilibrium (207). X3: problems P3, P4 (P4 is convex but degenerate; the barrier
+bound needs only convex C^2 functions). X4: uniform residual versus certified
+boxes under priority refinement. X5: finite-difference reference; exterior
+stencil nodes use the exact solution, which favors the solver, and no
+convergence theorem is claimed. X6: cost versus width. X7: the explicit ICNN is
+certified with the natural interval extension of its exact jet recursion, a
+tight enclosure of sigma(1-sigma), and the same boxes and refinement as X4.
+Cost ratios compare these implementations on one CPU thread; they are not
+hardware-independent. A priori ICNN Hessian bounds use a plain recursion with
+|phi'|<=1 and phi''<=1/4; they are not sharp and say nothing against contractive
+explicit networks, for which a depth-uniform bound also holds (supplement,
+Proposition G.1).
