@@ -1,0 +1,14 @@
+{
+  "original_file": "Monge_Ampere_E3_siguientes_celdas (2).ipynb",
+  "sha256": "fa64017988bc5f0adfd3ea4a55ac499197113c1c848c5e73d179a2029292e403",
+  "extracted_definition_cells_zero_based": [
+    4,
+    6,
+    8,
+    10,
+    20,
+    21
+  ],
+  "scope": "Original E3 P1/P2 pilots; subsequent E2/E4 experiments remain in original_colab.ipynb. No original trained weights or certificate archive was supplied.",
+  "note": "original_pilots.py was extracted from the E3 exploratory notebook (history/e3_exploratory_notebook.ipynb). Comments and messages were later translated into English; code is unchanged. The sha256 above refers to the original Spanish notebook."
+}
