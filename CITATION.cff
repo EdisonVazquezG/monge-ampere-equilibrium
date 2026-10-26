@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Convex equilibrium potentials for Monge-Ampere: code and certified results"
+authors:
+  - family-names: "Vazquez"
+    given-names: "Edison"
+  - family-names: "Lu"
+    given-names: "Yingdong"
+  - family-names: "Nowicki"
+    given-names: "Tomasz"
+license: MIT
+repository-code: "https://github.com/EdisonVazquezG/monge-ampere-equilibrium"
